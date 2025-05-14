@@ -6,74 +6,78 @@ using System.Threading.Tasks;
 
 namespace Task06
 {
-    public class LightHTML
-    {
-        private StringBuilder htmlContent;
-
-        public LightHTML()
-        {
-            htmlContent = new StringBuilder();
-        }
-
-        public void AddElement(string tag, string content)
-        {
-            htmlContent.AppendLine($"<{tag}>{content}</{tag}>");
-        }
-
-        public string GenerateHtml(string text)
-        {
-            var lines = text.Split(new[] { '\n' }, StringSplitOptions.None);
-            for (int i = 0; i < lines.Length; i++)
-            {
-                string line = lines[i].Trim();
-
-                if (string.IsNullOrWhiteSpace(line))
-                    continue;
-
-                if (i == 0)  
-                {
-                    AddElement("h1", line);
-                }
-                else if (lines[i].StartsWith(" "))  
-                {
-                    AddElement("blockquote", lines[i].TrimStart());
-                }
-                else if (line.Length < 20)  
-                {
-                    AddElement("h2", line);
-                }
-                else  
-                {
-                    AddElement("p", line);
-                }
-            }
-
-            return htmlContent.ToString();
-        }
-    }
-
     public class Program
     {
-        public static void Main()
+        static void Main(string[] args)
         {
-            Console.OutputEncoding = Encoding.Unicode;
-            Console.InputEncoding = Encoding.Unicode;
+            Console.WriteLine("Шаблонний метод");
+            HtmlElement div = new DivElement();
+            div.Render();
 
-            var lighthtml = new LightHTML();
+            Console.WriteLine("\nІтератор (в глибину)");
+            DivElement root = new DivElement();
+            SpanElement child1 = new SpanElement();
+            DivElement child2 = new DivElement();
+            root.Children.Add(child1);
+            root.Children.Add(child2);
 
-            string bookText = "Це заголовок\n   Це цитата\nТекст з більше ніж 20 символів\nІ ще один текст\n";
+            DepthIterator depthIterator = new DepthIterator(root);
+            while (depthIterator.HasNext())
+            {
+                HtmlElement el = depthIterator.Next();
+                Console.WriteLine("Відвідано: " + el.GetType().Name);
+            }
 
-            long memoryBefore = GC.GetTotalMemory(true);
+            Console.WriteLine("\nІтератор");
+            BreadthIterator breadthIterator = new BreadthIterator(root);
+            while (breadthIterator.HasNext())
+            {
+                HtmlElement el = breadthIterator.Next();
+                Console.WriteLine("Відвідано: " + el.GetType().Name);
+            }
 
-            string htmlOutput = lighthtml.GenerateHtml(bookText);
+            Console.WriteLine("\nКоманда: додати елемент");
+            SpanElement newChild = new SpanElement();
+            AddElementCommand addCmd = new AddElementCommand(root, newChild);
+            addCmd.Execute();
+            Console.WriteLine("Кількість дітей після додавання: " + root.Children.Count);
+            addCmd.Undo();
+            Console.WriteLine("Кількість дітей після скасування: " + root.Children.Count);
 
-            long memoryAfter = GC.GetTotalMemory(true);
+            Console.WriteLine("\nКоманда: змінити стиль");
+            root.Style = "color: red;";
+            ChangeStyleCommand styleCmd = new ChangeStyleCommand(root, "color: blue;");
+            styleCmd.Execute();
+            Console.WriteLine("Новий стиль: " + root.Style);
+            styleCmd.Undo();
+            Console.WriteLine("Відновлений стиль: " + root.Style);
 
-            Console.WriteLine("Generated HTML:\n" + htmlOutput);
-            Console.WriteLine($"Memory used: {memoryAfter - memoryBefore} bytes");
+            Console.WriteLine("\nПатерн Стан");
+            Editor editor = new Editor();
+            editor.SetState(new ViewState());
+            editor.Render();
+            editor.SetState(new EditState());
+            editor.Render();
+            editor.SetState(new PreviewState());
+            editor.Render();
+
+            Console.WriteLine("\nВідвідувач: валідація");
+            IVisitable visitableDiv = new DivElement();
+            IVisitable visitableSpan = new SpanElement();
+            ValidationVisitor validator = new ValidationVisitor();
+            visitableDiv.Accept(validator);
+            visitableSpan.Accept(validator);
+
+            Console.WriteLine("\nВідвідувач: статистика");
+            StatsVisitor statsVisitor = new StatsVisitor();
+            DivElement complexDiv = new DivElement();
+            complexDiv.Children.Add(new SpanElement());
+            complexDiv.Children.Add(new DivElement());
+
+            complexDiv.Accept(statsVisitor);
+            Console.WriteLine("Div'ів: " + statsVisitor.DivCount + ", Span'ів: " + statsVisitor.SpanCount);
+
             Console.ReadKey();
         }
     }
-
-
 }
